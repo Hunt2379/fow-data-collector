@@ -46,6 +46,7 @@
   var catalog = {};        // L-code → unit stats — transient run cache only
   var errors = [];
   var failedPayloads = []; // per-book payloads that failed to send — offered as a download at the end
+  var cancelled = false;   // set by the Stop button so the loop bails before the next book
 
   // ── progress overlay ───────────────────────────────────────────────────────────────────────────
   var ui = buildOverlay();
@@ -133,6 +134,7 @@
   function addClose() { ui.foot.appendChild(button('Close', '#3f473c', function () { ui.wrap.remove(); window.__fowCollectorRunning = false; })); }
 
   function fatal(msg) {
+    ui.foot.innerHTML = ''; // drop the Stop button if it was showing
     finishHead('Stopped', false);
     setStatus(msg);
     addClose();
@@ -140,6 +142,7 @@
   // Final summary once every book has been attempted. Unsent books (if any) are offered as a download so
   // the user never loses collected work; re-running the bookmark simply re-sends them.
   function finishSummary(sent, total, failed) {
+    ui.foot.innerHTML = ''; // drop the Stop button now that the run is finished
     ui.bar.style.width = '100%';
     if (sent === total) {
       finishHead('Done — ' + sent + ' book' + (sent === 1 ? '' : 's') + ' sent. Thank you!', true);
@@ -827,7 +830,15 @@
       }
 
       var sent = 0, failed = [];
+      // Stop button — lets the user bail without closing the tab. Removes the overlay and flags the loop
+      // to stop before the next book; any book already sent stays safe.
+      ui.foot.appendChild(button('Stop', '#8a3b34', function () {
+        cancelled = true;
+        ui.wrap.remove();
+        window.__fowCollectorRunning = false;
+      }));
       for (var i = 0; i < books.length; i++) {
+        if (cancelled) return;
         var book = books[i];
         setStatus('Book ' + (i + 1) + '/' + books.length + ': ' + book.book_name + ' — reading & sending…');
         var bs;
