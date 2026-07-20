@@ -35,7 +35,7 @@
   .bmark{cursor:grab;user-select:none;display:inline-flex;align-items:center;gap:10px;background:var(--accent);color:#fff;text-decoration:none;font-weight:800;font-size:16px;padding:13px 20px;border-radius:12px;border:2px solid var(--border-strong);box-shadow:0 8px 20px rgba(63,71,60,.34);transition:transform .12s ease,box-shadow .12s ease}
   .bmark:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(63,71,60,.4)}
   .bmark:active{cursor:grabbing;transform:translateY(0)}
-  .bmark .chip{width:26px;height:26px;border-radius:7px;background:#fff;color:var(--accent);font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center}
+  .bmark::before{content:"FoW";flex:none;width:26px;height:26px;border-radius:7px;background:#fff;color:var(--accent);font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center}
   .noclick{text-align:center;font-size:11.5px;color:var(--muted);margin-top:8px}
 
   .steps{display:grid;gap:11px;margin:22px auto 0;max-width:460px}
@@ -79,9 +79,7 @@
         Pages only serves once the repo is PUBLIC on a Free plan.
       -->
       <a class="bmark" draggable="true"
-         href="javascript:(function(){var d=document,s=d.createElement('script');s.src='https://Hunt2379.github.io/fow-data-collector/collector.js?t='+Date.now();d.body.appendChild(s);})();">
-        <span class="chip">FoW</span> Collect my FoW data
-      </a>
+         href="javascript:(function(){var d=document,s=d.createElement('script');s.src='https://Hunt2379.github.io/fow-data-collector/collector.js?t='+Date.now();d.body.appendChild(s);})();">Collect my FoW data</a>
       <div class="noclick">↑ don't click it here — <b>drag</b> it up to the bar</div>
     </div>
 
