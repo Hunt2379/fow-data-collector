@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FoW V4 Data Collector</title>
+<style>
+  :root{
+    --bg:#e9e7de; --surface:#fff; --surface-alt:#f2f0e9; --border:#d7d4c8; --border-strong:#3f473c;
+    --text:#25281f; --muted:#6b6f62; --accent:#3f473c; --accent-text:#fff; --success:#3f6a2e;
+    --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace; --body:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#cfccbf;color:var(--text);font-family:var(--body);line-height:1.5}
+  .page{max-width:620px;margin:0 auto;padding:34px 18px 60px}
+  .card{background:radial-gradient(1000px 260px at 50% -70px,#f5f3ea,#fff 60%);border:1px solid var(--border);border-radius:16px;box-shadow:0 18px 44px rgba(31,34,28,.18);padding:30px 26px 32px}
+
+  .badge{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#5a5e50;background:var(--surface-alt);border:1px solid var(--border);border-radius:999px;padding:4px 12px}
+  h1{margin:12px 0 4px;font-size:25px;letter-spacing:-.02em}
+  .sub{margin:0 0 4px;font-size:14px;color:var(--muted)}
+  .sub b{color:var(--text)}
+
+  /* faux bookmarks bar */
+  .bmbar{margin:24px 0 4px;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#fff}
+  .tabrow{background:#eceadf;padding:6px 10px;display:flex;align-items:center;gap:8px;font-size:12px;color:#6b6f62;border-bottom:1px solid var(--border)}
+  .tabrow .lbl{font-size:10.5px;color:#9a978c;margin-right:2px}
+  .chipbk{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:6px;color:#6b6f62}
+  .chipbk .sq{width:12px;height:12px;border-radius:3px;background:#c9c6ba;display:inline-block}
+  .target{margin-left:2px;border:2px dashed var(--accent);border-radius:6px;padding:3px 10px;color:var(--accent);font-weight:800;font-size:11.5px;background:#3f473c14;animation:pulse 1.6s ease-in-out infinite}
+  .barhint{padding:7px 12px;text-align:center;color:#9a978c;font-size:11px}
+
+  .dragwrap{display:flex;flex-direction:column;align-items:center;margin:16px 0 4px}
+  .updown{color:var(--accent);font-size:23px;line-height:1;animation:bounce 1.3s ease-in-out infinite}
+  .draghint{font-size:11px;font-weight:800;letter-spacing:.05em;color:var(--accent);text-align:center;margin:2px 0 10px}
+  .bmark{cursor:grab;user-select:none;display:inline-flex;align-items:center;gap:10px;background:var(--accent);color:#fff;text-decoration:none;font-weight:800;font-size:16px;padding:13px 20px;border-radius:12px;border:2px solid var(--border-strong);box-shadow:0 8px 20px rgba(63,71,60,.34);transition:transform .12s ease,box-shadow .12s ease}
+  .bmark:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(63,71,60,.4)}
+  .bmark:active{cursor:grabbing;transform:translateY(0)}
+  .bmark .chip{width:26px;height:26px;border-radius:7px;background:#fff;color:var(--accent);font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center}
+  .noclick{text-align:center;font-size:11.5px;color:var(--muted);margin-top:8px}
+
+  .steps{display:grid;gap:11px;margin:22px auto 0;max-width:460px}
+  .step{display:flex;gap:12px;align-items:flex-start;font-size:13.5px}
+  .step .n{flex:none;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center}
+  .step b{color:var(--text)}
+  .step .mono{font-family:var(--mono);font-size:12.5px}
+
+  .safe{margin:22px auto 0;max-width:460px;border:1px solid var(--border);border-left:4px solid var(--success);border-radius:0 10px 10px 0;background:#e9f1e2;padding:11px 15px;font-size:12.5px;color:#33502a}
+  .foot{margin:26px auto 0;max-width:460px;text-align:center;font-size:11.5px;color:var(--muted)}
+
+  @keyframes pulse{0%,100%{opacity:.55;transform:translateY(0)}50%{opacity:1;transform:translateY(-1px)}}
+  @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="card">
+    <span class="badge">🎲 Community project · open source</span>
+    <h1>Help build the FoW v4 data</h1>
+    <p class="sub">Own books on <b class="mono">forces.flamesofwar.com</b>? Drag the button to your bookmarks bar once, then click it while signed in. It runs in <b>your</b> browser, sends only game data, and never sees your login.</p>
+
+    <!-- where the bookmark goes -->
+    <div class="bmbar">
+      <div class="tabrow">
+        <span class="lbl">Bookmarks</span>
+        <span class="chipbk"><span class="sq"></span> Gmail</span>
+        <span class="chipbk"><span class="sq"></span> YouTube</span>
+        <span class="target">▸ drop it here</span>
+      </div>
+      <div class="barhint">↑ your browser's bookmarks bar</div>
+    </div>
+
+    <!-- draggable bookmark -->
+    <div class="dragwrap">
+      <span class="updown">⬆</span>
+      <span class="draghint">DRAG THE BUTTON UP TO YOUR BOOKMARKS BAR</span>
+      <!--
+        ── THE ONE THING TO EDIT ──
+        Replace YOUR_GITHUB_USERNAME below with the account that owns this repo.
+        The bookmarklet loads collector.js from this repo's GitHub Pages URL.
+        (Pages only serves once the repo is PUBLIC on a Free plan.)
+      -->
+      <a class="bmark" draggable="true"
+         href="javascript:(function(){var d=document,s=d.createElement('script');s.src='https://YOUR_GITHUB_USERNAME.github.io/fow-data-collector/collector.js?t='+Date.now();d.body.appendChild(s);})();">
+        <span class="chip">FoW</span> Collect my FoW data
+      </a>
+      <div class="noclick">↑ don't click it here — <b>drag</b> it up to the bar</div>
+    </div>
+
+    <!-- steps -->
+    <div class="steps">
+      <div class="step"><span class="n">1</span><div><b>Drag</b> the button above onto your bookmarks bar. One-time setup.</div></div>
+      <div class="step"><span class="n">2</span><div>Go to <b class="mono">forces.flamesofwar.com</b> and sign in.</div></div>
+      <div class="step"><span class="n">3</span><div>Click the <b>“Collect my FoW data”</b> bookmark. Keep the tab open a few minutes — it sends automatically, then shows a “Thank you”.</div></div>
+    </div>
+
+    <div class="safe"><b>Safe:</b> your login never leaves your browser. This reads only the books your own account unlocks, and sends only unit points, stats &amp; cards.</div>
+
+    <div class="foot">By the community, for the community · not affiliated with Battlefront / Flames of War.</div>
+  </div>
+</div>
+</body>
+</html>
