@@ -52,14 +52,6 @@
   var failedPayloads = []; // per-book payloads that failed to send — offered as a download at the end
   var cancelled = false;   // set by the Stop button so the loop bails before the next book
 
-  // Rate-limit handling for the concurrent fetches. All workers share your IP, so one 429/challenge
-  // pauses the WHOLE pool via `pausedUntil`; every get() waits on it, backs off, and retries the SAME
-  // url (never skips the unit). After MAX_BLOCK_RETRIES straight blocks we `hardBlocked` and stop loudly.
-  var MAX_BLOCK_RETRIES = 5;
-  var pausedUntil = 0;     // epoch ms — shared brake every fetch respects
-  var blockedCount = 0;    // times a fetch came back blocked (shown live in the overlay)
-  var hardBlocked = false; // retries exhausted → stop the run instead of stubbing everything 'error'
-
   // ── progress overlay ───────────────────────────────────────────────────────────────────────────
   var ui = buildOverlay();
 
@@ -177,47 +169,11 @@
   }
   function looksLikePage(html) { return (html || '').indexOf('cssSkin') !== -1; }
 
-  function sleep(ms) { return new Promise(function (res) { setTimeout(res, ms); }); }
-
-  // A Cloudflare block/throttle — deliberately NOT the same as a real "no access" page (that's a normal
-  // 200 with 'do not have access' text, handled by noAccess()). We only retry on THESE, never on denied.
-  function looksBlocked(status, html) {
-    if (status === 429 || status === 503) return true;
-    var h = (html || '').toLowerCase();
-    return h.indexOf('just a moment') !== -1 || h.indexOf('challenge-platform') !== -1 ||
-           h.indexOf('cf-chl') !== -1 || h.indexOf('attention required') !== -1;
-  }
-
-  // Shared brake: hold here until the pool-wide pause clears (or a hard block ends the run).
-  async function waitForGate() {
-    var wait = pausedUntil - Date.now();
-    while (wait > 0 && !hardBlocked) { await sleep(Math.min(wait, 1000)); wait = pausedUntil - Date.now(); }
-  }
-
   async function get(path) {
     var url = /^https?:/i.test(path) ? path : BASE + path;
-    for (var attempt = 0; ; attempt++) {
-      await waitForGate();
-      if (hardBlocked) return { html: '', url: url, status: 0 }; // run is stopping — don't fetch
-      var resp = await fetch(url, { credentials: 'include', redirect: 'follow' });
-      var html = await resp.text();
-      if (!looksBlocked(resp.status, html)) {
-        return { html: html, url: resp.url || url, status: resp.status };
-      }
-      blockedCount++;
-      if (attempt >= MAX_BLOCK_RETRIES) {
-        hardBlocked = true;
-        return { html: html, url: resp.url || url, status: resp.status };
-      }
-      // Pause the whole pool: honor Retry-After if present, else exponential backoff + jitter.
-      var ra = parseInt((resp.headers && resp.headers.get('Retry-After')) || '', 10);
-      var backoff = !isNaN(ra) ? ra * 1000
-        : Math.min(30000, 1000 * Math.pow(2, attempt)) + Math.floor(Math.random() * 500);
-      if (Date.now() + backoff > pausedUntil) pausedUntil = Date.now() + backoff;
-      ui.sub.textContent = '⏸ Rate-limited — pausing ' + Math.ceil(backoff / 1000) +
-        's, retrying (blocked ' + blockedCount + '×)';
-      await waitForGate();
-    }
+    var resp = await fetch(url, { credentials: 'include', redirect: 'follow' });
+    var html = await resp.text();
+    return { html: html, url: resp.url || url, status: resp.status };
   }
 
   // ── asset/code helpers (only for reading codes off CardImages srcs — no downloads) ───────────────
@@ -755,7 +711,7 @@
   async function pool(items, limit, worker) {
     var next = 0;
     async function runner() {
-      while (next < items.length && !hardBlocked) {
+      while (next < items.length) {
         var i = next++;
         await worker(items[i], i);
       }
@@ -903,7 +859,6 @@
       }));
       for (var i = 0; i < books.length; i++) {
         if (cancelled) return;
-        if (hardBlocked) break;
         var book = books[i];
         setStatus('Book ' + (i + 1) + '/' + books.length + ': ' + book.book_name + ' — reading & sending…');
         var bs;
@@ -915,7 +870,6 @@
           failed.push(book.book_name);
           continue;
         }
-        if (hardBlocked) break;                  // scraped while blocked — don't upload a corrupt book
         var payload = assembleBook(bs);          // self-contained: this book + its own units inline
         try {
           await uploadBook(payload);
@@ -926,16 +880,7 @@
         }
       }
 
-      if (hardBlocked) {
-        ui.foot.innerHTML = '';
-        finishHead('Stopped — the site blocked us', false);
-        setStatus('Rate-limited/blocked after ' + blockedCount + ' tries. ' + sent + ' book(s) sent. ' +
-          'Sign in again on forces.flamesofwar.com and re-run to finish.');
-        if (failedPayloads.length) offerDownload(failedPayloads, 'Download ' + failedPayloads.length + ' unsent book(s)');
-        addClose();
-      } else {
-        finishSummary(sent, books.length, failed);
-      }
+      finishSummary(sent, books.length, failed);
     } catch (e) {
       fatal('Something went wrong: ' + (e.message || e));
     }
