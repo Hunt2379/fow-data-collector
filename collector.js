@@ -14,6 +14,10 @@
 // The parsing is a faithful browser port of scraper/forces_scraper/forces_scraper_pw_v3.py (Part I):
 // selectors, URL grammar, no-access guards, multi-unit-card splitting and denied-stub-never-drop all
 // mirror that file. DATA ONLY — no images/assets. Pacing is purely sequential `await`s.
+
+// Version 1.0.1 - UPDATE ME AFTER EACH UPDATE OR CODE CHANGE!!
+
+
 (function () {
   'use strict';
 
