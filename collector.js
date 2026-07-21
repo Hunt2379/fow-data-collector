@@ -702,17 +702,33 @@
       source: SOURCE, scraped_at: new Date().toISOString()
     };
   }
+  // Run `worker(item)` over items with at most `limit` in flight at once. Each item goes to exactly one
+  // runner (next++ has no await between read and write, so it's atomic) — no item runs twice, no overlap.
+  async function pool(items, limit, worker) {
+    var next = 0;
+    async function runner() {
+      while (next < items.length) {
+        var i = next++;
+        await worker(items[i], i);
+      }
+    }
+    var runners = [];
+    var n = Math.min(limit, items.length);
+    for (var k = 0; k < n; k++) runners.push(runner());
+    await Promise.all(runners);
+  }
   async function runPass2(structs) {
     var refs = collectRefs(structs);
     var codeRefs = refs.codeRefs, cardBoxes = refs.cardBoxes;
     var codes = Object.keys(codeRefs);
     var done = 0;
 
-    for (var ci = 0; ci < codes.length; ci++) {
-      var code = codes[ci];
+    // 5 units in flight at once (in-tab concurrency). Codes are distinct so workers never overlap, and
+    // the shared `catalog` dedup (skip already-'ok', re-try denied in later books) is unchanged.
+    await pool(codes, 5, async function (code) {
       done++;
       setProgress(done, codes.length + cardBoxes.length, 'Unit ' + code);
-      if (catalog[code] && catalog[code].access === 'ok') continue;
+      if (catalog[code] && catalog[code].access === 'ok') return;
 
       var list = codeRefs[code];
       var got = false, sawDenied = false, sawUrl = false;
@@ -741,11 +757,11 @@
         var access = (sawDenied || !sawUrl) ? 'denied' : 'error';
         catalog[code] = stubEntry(code, stubRef, access);
       }
-    }
+    });
 
-    // command cards: book-scoped, no code — visit each once, enrich in place (recorded on the box's units).
-    for (var bi = 0; bi < cardBoxes.length; bi++) {
-      var cb = cardBoxes[bi];
+    // command cards: book-scoped, no code — 5 boxes in flight; each box's units are distinct objects
+    // enriched in place, so concurrent boxes never touch the same entry.
+    await pool(cardBoxes, 5, async function (cb) {
       done++;
       setProgress(done, codes.length + cardBoxes.length, 'Command cards');
       for (var ui2 = 0; ui2 < cb.box.units.length; ui2++) {
@@ -771,7 +787,7 @@
           u.access = 'error';
         }
       }
-    }
+    });
   }
 
   // ── assemble one book + send it ──────────────────────────────────────────────────────────────────
