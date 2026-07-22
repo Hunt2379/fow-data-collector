@@ -35,7 +35,7 @@
   var BASE = window.location.origin;    // https://forces.flamesofwar.com (we run on that page)
   var SOURCE = 'forces.flamesofwar.com';
   var SCHEMA_VERSION = 3;
-  var COLLECTOR_VERSION = 'fow-collector-1';
+  var COLLECTOR_VERSION = 'fow-collector-3';
   // Random id for THIS run, stamped on every book so multi-book / multi-user submissions stay distinct.
   var RUN_ID = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
              : 'run-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
@@ -748,12 +748,23 @@
         if (!looksLikePage(r.html)) continue;
         var units = parseUnit(parseHTML(r.html), code);
         var stamp = new Date().toISOString();
-        units.forEach(function (u, i) {
-          var ucode = u.code || (i === 0 ? code : '');
-          if (!ucode) return;
+        units.forEach(function (u) {
           u.access = 'ok'; u.url = r.url; u.scraped_at = stamp; u.source = SOURCE; u.book_id = ref.book_id;
-          catalog[ucode] = u;
         });
+        if (units.length) {
+          // A page can carry several profiles. Split them by the SAME signal forces uses: a code that
+          // sits on a formation box (in codeRefs) is its OWN selectable unit and keeps its own top-level
+          // entry (e.g. Sherman MB132 + Grant MB102 sharing a card); a code that is NOT box-referenced
+          // (only in the main's option text, e.g. the Jeep LU107) is a component and nests under the main.
+          var comps = [];
+          for (var xi = 1; xi < units.length; xi++) {
+            var ex = units[xi];
+            if (ex.code && codeRefs[ex.code]) catalog[ex.code] = ex;   // box-referenced extra -> its own unit
+            else comps.push(ex);                                       // component -> nest under the main
+          }
+          if (comps.length) units[0].models = comps;
+          catalog[units[0].code || code] = units[0];   // the main keeps its own L-code (or the fetched box code)
+        }
         got = true;
         break;
       }
@@ -809,7 +820,7 @@
           u.motivation = c.motivation; u.skill = c.skill; u.is_hit_on = c.is_hit_on;
           u.save_type = c.save_type; u.save = c.save; u.special_rules = c.special_rules;
           u.movement = c.movement; u.requirements = c.requirements; u.flags = c.flags;
-          u.scraped_at = c.scraped_at;
+          u.scraped_at = c.scraped_at; u.models = c.models;   // carry nested component models onto the slot
         });
       });
     });
