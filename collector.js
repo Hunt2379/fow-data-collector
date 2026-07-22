@@ -75,7 +75,7 @@
     head.setAttribute('style', 'background:#3f473c;color:#f2f0e6;padding:14px 16px;border-radius:14px 14px 0 0;');
     head.innerHTML =
       '<div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.75">FoW List Builder</div>' +
-      '<div style="font-weight:700;font-size:16px;margin-top:2px">Sending your book data…</div>';
+      '<div style="font-weight:700;font-size:16px;margin-top:2px">Parsing your book data…</div>';
 
     var body = document.createElement('div');
     body.setAttribute('style', 'padding:16px;');
@@ -83,6 +83,16 @@
     var status = document.createElement('div');
     status.setAttribute('style', 'font-size:14px;font-weight:600;margin-bottom:10px;');
     status.textContent = 'Starting…';
+
+    // Overall (all-books) progress — its own label + bar, shown above the current-book bar.
+    var overallLabel = document.createElement('div');
+    overallLabel.setAttribute('style', 'font-size:12px;font-weight:700;color:#3f473c;margin-bottom:4px;');
+    overallLabel.textContent = 'Preparing…';
+    var overallBarOuter = document.createElement('div');
+    overallBarOuter.setAttribute('style', 'height:9px;border-radius:99px;background:#e2dfd1;overflow:hidden;margin-bottom:12px;');
+    var overallBar = document.createElement('div');
+    overallBar.setAttribute('style', 'height:100%;width:0%;background:#6b7a5e;transition:width .2s ease;');
+    overallBarOuter.appendChild(overallBar);
 
     var barOuter = document.createElement('div');
     barOuter.setAttribute('style', 'height:9px;border-radius:99px;background:#e2dfd1;overflow:hidden;margin-bottom:8px;');
@@ -96,6 +106,8 @@
     var foot = document.createElement('div');
     foot.setAttribute('style', 'margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;');
 
+    body.appendChild(overallLabel);
+    body.appendChild(overallBarOuter);
     body.appendChild(status);
     body.appendChild(barOuter);
     body.appendChild(sub);
@@ -105,7 +117,7 @@
     wrap.appendChild(card);
     document.body.appendChild(wrap);
 
-    return { wrap: wrap, head: head, status: status, bar: bar, sub: sub, foot: foot };
+    return { wrap: wrap, head: head, status: status, bar: bar, sub: sub, foot: foot, overallBar: overallBar, overallLabel: overallLabel };
   }
 
   function setStatus(text) { ui.status.textContent = text; ui.sub.textContent = ''; }
@@ -113,6 +125,11 @@
     var pct = total > 0 ? Math.round((done / total) * 100) : 0;
     ui.bar.style.width = pct + '%';
     ui.sub.textContent = (label || '') + '  (' + done + '/' + total + ')';
+  }
+  function setOverall(done, total) {
+    var pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    ui.overallBar.style.width = pct + '%';
+    ui.overallLabel.textContent = 'Book ' + done + ' / ' + total;
   }
   function button(text, bg, onClick) {
     var b = document.createElement('button');
@@ -871,7 +888,8 @@
       for (var i = 0; i < books.length; i++) {
         if (cancelled) return;
         var book = books[i];
-        setStatus('Book ' + (i + 1) + '/' + books.length + ': ' + book.book_name + ' — reading & sending…');
+        setOverall(i + 1, books.length);
+        setStatus(book.book_name + ' — reading & sending…');
         var bs;
         try {
           bs = await buildBookStructure(book);   // structure (forces, boxes, unit codes)
